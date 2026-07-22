@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { cn } from "@/lib/utils";
 
 type Direction = "up" | "down" | "left" | "right" | "none";
 
@@ -40,7 +39,7 @@ export function ScrollReveal({
 }: ScrollRevealProps) {
   return (
     <motion.div
-      className={cn(className)}
+      className={className}
       initial={{ opacity: 0, ...getOffset(direction, distance) }}
       whileInView={{ opacity: 1, x: 0, y: 0 }}
       viewport={{ once: true, margin: "-100px 0px" }}
@@ -66,7 +65,7 @@ export function StaggerContainer({
 }) {
   return (
     <motion.div
-      className={cn(className)}
+      className={className}
       initial="hidden"
       whileInView="visible"
       viewport={{ once: true, margin: "-80px 0px" }}
