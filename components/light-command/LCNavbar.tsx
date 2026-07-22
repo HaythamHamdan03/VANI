@@ -60,7 +60,7 @@ export function LCNavbar({ theme }: { theme: LCTheme }) {
         transition={{ duration: 0.5 }}
       >
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
-          <Link href={`/${theme.slug}`} className="flex items-center gap-2.5 select-none">
+          <Link href="/" className="flex items-center gap-2.5 select-none">
             <NodeMark color={theme.accent} />
             <span className="font-sans font-bold text-[1.08rem] tracking-tight" style={{ color: theme.ink }}>
               V<span style={{ color: theme.accent }}>AI</span>NI
