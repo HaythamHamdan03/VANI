@@ -1,162 +1,282 @@
 "use client";
 import { motion } from "framer-motion";
-import { ArrowRight, CheckCircle } from "lucide-react";
+import { ArrowRight, Phone, MessageCircle, Globe, Mail, Share2, Smartphone, CheckCircle } from "lucide-react";
 import type { LCTheme } from "@/lib/lc-themes";
 
-// ── Network visualization constants ─────────────────────────────────
-const CX = 210, CY = 180, R_OUT = 148, R_IN = 82;
+// ── Network data ──────────────────────────────────────────────────
+const CHANNELS = [
+  { label: "Voice",    Icon: Phone,         angle: -90  },
+  { label: "WhatsApp", Icon: MessageCircle, angle: -30  },
+  { label: "Chat",     Icon: Globe,         angle:  30  },
+  { label: "Email",    Icon: Mail,          angle:  90  },
+  { label: "Social",   Icon: Share2,        angle: 150  },
+  { label: "App",      Icon: Smartphone,    angle: 210  },
+];
 
-function toXY(cx: number, cy: number, r: number, deg: number) {
-  const rad = ((deg - 90) * Math.PI) / 180;
+const AGENTS = [
+  { label: "Triage",     hot: true,  angle: -90   },
+  { label: "Knowledge",  hot: false, angle: -38.6 },
+  { label: "Response",   hot: false, angle:  12.8 },
+  { label: "Compliance", hot: true,  angle:  64.3 },
+  { label: "Escalation", hot: false, angle: 115.7 },
+  { label: "Summary",    hot: false, angle: 167.2 },
+  { label: "Quality",    hot: true,  angle: 218.6 },
+];
+
+function toXY(cx: number, cy: number, r: number, angleDeg: number) {
+  const rad = (angleDeg - 90) * (Math.PI / 180);
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
 }
 
-const CH_ANGLES  = [0, 60, 120, 180, 240, 300];
-const AG_ANGLES  = [0, 51, 103, 154, 206, 257, 309];
-const CH_LABELS  = ["Voice", "WhatsApp", "Chat", "Email", "Social", "App"];
-const AG_LABELS  = ["Triage", "Know.", "Response", "Comply", "Escalate", "Summary", "Quality"];
+const CX = 260, CY = 230;
+const R_OUTER = 190;
+const R_INNER = 100;
 
-const CHANNELS = CH_ANGLES.map((a, i) => ({ ...toXY(CX, CY, R_OUT, a), label: CH_LABELS[i] }));
-const AGENTS   = AG_ANGLES.map((a, i) => ({ ...toXY(CX, CY, R_IN, a),  label: AG_LABELS[i] }));
+// ── Network visualization ──────────────────────────────────────────
+function NetworkViz({ theme }: { theme: LCTheme }) {
+  const A = theme.accent;
 
-// Traveling dot paths (channel → VANI core)
-const DOT_PATHS = [0, 2, 3, 5].map((ci) => ({
-  from: CHANNELS[ci],
-  to:   { x: CX, y: CY },
-}));
+  const channels = CHANNELS.map((c) => ({ ...c, ...toXY(CX, CY, R_OUTER, c.angle) }));
+  const agents   = AGENTS.map((a)   => ({ ...a, ...toXY(CX, CY, R_INNER, a.angle) }));
 
-function NetworkViz({ theme, delay = 0 }: { theme: LCTheme; delay?: number }) {
   return (
-    <svg width="420" height="360" viewBox="0 0 420 360" className="w-full h-full" aria-hidden>
-      <defs>
-        <radialGradient id={`glow-${theme.slug}`} cx="50%" cy="50%" r="50%">
-          <stop offset="0%"   stopColor={theme.netNode} stopOpacity="0.12" />
-          <stop offset="100%" stopColor={theme.netNode} stopOpacity="0" />
-        </radialGradient>
-      </defs>
+    <div className="relative w-full max-w-[540px] mx-auto hidden lg:block">
+      <svg viewBox="0 0 520 460" className="w-full h-auto" aria-hidden>
+        <defs>
+          <radialGradient id="lc-coreGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%"   stopColor={A} stopOpacity="0.22" />
+            <stop offset="100%" stopColor={A} stopOpacity="0" />
+          </radialGradient>
+          <filter id="lc-glow" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur stdDeviation="2.5" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+          <filter id="lc-dotGlow" x="-100%" y="-100%" width="300%" height="300%">
+            <feGaussianBlur stdDeviation="2" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </defs>
 
-      {/* Ambient glow behind core */}
-      <circle cx={CX} cy={CY} r="60" fill={`url(#glow-${theme.slug})`} />
+        {/* Orbit rings */}
+        <circle cx={CX} cy={CY} r={R_OUTER}
+          fill="none" stroke="rgba(26,111,232,0.08)" strokeWidth="1" strokeDasharray="4 9" />
+        <circle cx={CX} cy={CY} r={R_INNER}
+          fill="none" stroke="rgba(26,111,232,0.11)" strokeWidth="1" />
 
-      {/* Channel → agent lines (very faint) */}
-      {CHANNELS.map((ch, ci) =>
-        AGENTS.slice(0, 3).map((ag, ai) => (
-          <line key={`ch-ag-${ci}-${ai}`}
-            x1={ch.x} y1={ch.y} x2={ag.x} y2={ag.y}
-            stroke={theme.netLine} strokeWidth="0.5"
-          />
-        ))
-      )}
-
-      {/* Channel → core lines */}
-      {CHANNELS.map((ch, ci) => {
-        const mid = { x: (ch.x + CX) / 2, y: (ch.y + CY) / 2 };
-        return (
-          <motion.line key={`ch-core-${ci}`}
+        {/* Lines: channels → core */}
+        {channels.map((ch, i) => (
+          <motion.line key={`lc-cl-${i}`}
             x1={ch.x} y1={ch.y} x2={CX} y2={CY}
-            stroke={theme.netLine} strokeWidth="1"
+            stroke="rgba(26,111,232,0.17)" strokeWidth="1"
             initial={{ pathLength: 0, opacity: 0 }}
             animate={{ pathLength: 1, opacity: 1 }}
-            transition={{ delay: delay + ci * 0.12 + 0.4, duration: 0.8, ease: "easeOut" }}
+            transition={{ duration: 0.8, delay: i * 0.12 + 0.5 }}
           />
-        );
-      })}
+        ))}
 
-      {/* Agent → core lines */}
-      {AGENTS.map((ag, ai) => (
-        <motion.line key={`ag-core-${ai}`}
-          x1={ag.x} y1={ag.y} x2={CX} y2={CY}
-          stroke={theme.netLine} strokeWidth="0.8"
-          initial={{ pathLength: 0, opacity: 0 }}
-          animate={{ pathLength: 1, opacity: 1 }}
-          transition={{ delay: delay + ai * 0.1 + 0.7, duration: 0.7 }}
-        />
-      ))}
-
-      {/* Traveling dots: channel → core */}
-      {DOT_PATHS.map((p, i) => (
-        <motion.circle key={`dot-${i}`}
-          r="3" fill={theme.netNode}
-          animate={{
-            x: [p.from.x, CX],
-            y: [p.from.y, CY],
-            opacity: [0, 1, 1, 0],
-          }}
-          transition={{
-            duration: 1.8,
-            repeat: Infinity,
-            delay: i * 0.7 + delay + 1.5,
-            ease: "linear",
-          }}
-        />
-      ))}
-
-      {/* Channel nodes (outer ring) */}
-      {CHANNELS.map((ch, i) => (
-        <motion.g key={`ch-${i}`}
-          initial={{ opacity: 0, scale: 0 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: delay + i * 0.1 + 0.2, duration: 0.4, type: "spring" }}
-        >
-          <circle cx={ch.x} cy={ch.y} r="18"
-            fill={theme.accentSoft} stroke={theme.border} strokeWidth="1"
+        {/* Lines: core → agents */}
+        {agents.map((ag, i) => (
+          <motion.line key={`lc-al-${i}`}
+            x1={CX} y1={CY} x2={ag.x} y2={ag.y}
+            stroke="rgba(26,111,232,0.11)" strokeWidth="1"
+            initial={{ pathLength: 0, opacity: 0 }}
+            animate={{ pathLength: 1, opacity: 1 }}
+            transition={{ duration: 0.8, delay: i * 0.1 + 0.9 }}
           />
-          <circle cx={ch.x} cy={ch.y} r="5" fill={theme.netNode} />
-          <text x={ch.x} y={ch.y + 30} textAnchor="middle"
-            fontSize="9" fill={theme.faint} fontFamily="system-ui, sans-serif"
+        ))}
+
+        {/* Travelling dots: channels → core */}
+        {channels.map((ch, i) => (
+          <motion.circle key={`lc-dch-${i}`}
+            r="3.5" fill={A} filter="url(#lc-dotGlow)"
+            animate={{
+              x: [ch.x, CX],
+              y: [ch.y, CY],
+              opacity: [0, 1, 1, 0],
+            }}
+            transition={{
+              duration: 1.8,
+              delay: i * 0.3 + 1.5,
+              repeat: Infinity,
+              repeatDelay: 1.5 + i * 0.4,
+              ease: "easeInOut",
+            }}
+          />
+        ))}
+
+        {/* Travelling dots: core → agents */}
+        {agents.map((ag, i) => (
+          <motion.circle key={`lc-dag-${i}`}
+            r="2.5" fill="rgba(26,111,232,0.55)" filter="url(#lc-dotGlow)"
+            animate={{
+              x: [CX, ag.x],
+              y: [CY, ag.y],
+              opacity: [0, 1, 1, 0],
+            }}
+            transition={{
+              duration: 1.6,
+              delay: i * 0.25 + 2.0,
+              repeat: Infinity,
+              repeatDelay: 2 + i * 0.35,
+              ease: "easeOut",
+            }}
+          />
+        ))}
+
+        {/* Channel nodes */}
+        {channels.map((ch, i) => (
+          <motion.g key={`lc-ch-${i}`}
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: i * 0.1 + 0.3, duration: 0.5 }}
           >
-            {ch.label}
-          </text>
-        </motion.g>
-      ))}
+            {/* Ambient halo */}
+            <circle cx={ch.x} cy={ch.y} r="36"
+              fill="rgba(26,111,232,0.05)" />
+            {/* Node body */}
+            <circle cx={ch.x} cy={ch.y} r="26"
+              fill="white" stroke="rgba(26,111,232,0.25)" strokeWidth="1.5" />
+            {/* Lucide icon */}
+            <foreignObject x={ch.x - 11} y={ch.y - 11} width="22" height="22">
+              <ch.Icon size={15} color={A} />
+            </foreignObject>
+            {/* Label */}
+            <text x={ch.x} y={ch.y + 43} textAnchor="middle"
+              fill={theme.muted} fontSize="8.5" fontFamily="system-ui, sans-serif"
+              letterSpacing="0.08em" fontWeight="500">
+              {ch.label.toUpperCase()}
+            </text>
+          </motion.g>
+        ))}
 
-      {/* Agent nodes (inner ring) */}
-      {AGENTS.map((ag, i) => (
-        <motion.g key={`ag-${i}`}
+        {/* Core ambient glow */}
+        <circle cx={CX} cy={CY} r="65" fill="url(#lc-coreGlow)" />
+
+        {/* VANI Core node */}
+        <motion.g
           initial={{ opacity: 0, scale: 0 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: delay + i * 0.08 + 0.5, duration: 0.35, type: "spring" }}
+          transition={{ delay: 0.2, type: "spring", stiffness: 260, damping: 20 }}
         >
-          <circle cx={ag.x} cy={ag.y} r="13"
-            fill={theme.surface} stroke={theme.border} strokeWidth="1"
+          <circle cx={CX} cy={CY} r="44"
+            fill="white" stroke={A} strokeWidth="2" />
+          <circle cx={CX} cy={CY} r="44"
+            fill="rgba(26,111,232,0.06)" />
+          <text x={CX} y={CY - 4} textAnchor="middle"
+            fill={A} fontSize="13" fontFamily="system-ui, sans-serif"
+            fontWeight="800" letterSpacing="0.16em">
+            VANI
+          </text>
+          <text x={CX} y={CY + 10} textAnchor="middle"
+            fill={theme.faint} fontSize="7" fontFamily="system-ui, sans-serif"
+            fontWeight="400" letterSpacing="0.12em">
+            AI CORE
+          </text>
+          {/* Pulse ring 1 */}
+          <motion.circle cx={CX} cy={CY} r="44"
+            fill="none" stroke="rgba(26,111,232,0.38)" strokeWidth="1.5"
+            animate={{ r: [44, 74], opacity: [0.9, 0] }}
+            transition={{ duration: 2.4, repeat: Infinity, ease: "easeOut", repeatDelay: 0.3 }}
           />
-          <circle cx={ag.x} cy={ag.y} r="3.5" fill={theme.netNode} opacity="0.7" />
+          {/* Pulse ring 2 — offset phase */}
+          <motion.circle cx={CX} cy={CY} r="44"
+            fill="none" stroke="rgba(26,111,232,0.20)" strokeWidth="1"
+            animate={{ r: [44, 82], opacity: [0.7, 0] }}
+            transition={{ duration: 2.4, repeat: Infinity, ease: "easeOut", repeatDelay: 0.3, delay: 1.2 }}
+          />
         </motion.g>
-      ))}
 
-      {/* VANI core */}
-      <motion.g
-        initial={{ opacity: 0, scale: 0 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: delay + 0.15, duration: 0.5, type: "spring" }}
+        {/* Agent nodes */}
+        {agents.map((ag, i) => (
+          <motion.g key={`lc-ag-${i}`}
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: i * 0.08 + 0.7, duration: 0.4 }}
+          >
+            <circle cx={ag.x} cy={ag.y} r="20"
+              fill="white"
+              stroke={ag.hot ? "rgba(26,111,232,0.48)" : "rgba(26,111,232,0.16)"}
+              strokeWidth="1.5"
+            />
+            {ag.hot ? (
+              <motion.circle cx={ag.x} cy={ag.y} r="6"
+                fill={A}
+                animate={{ r: [5, 7, 5], opacity: [0.9, 1, 0.9] }}
+                transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+              />
+            ) : (
+              <circle cx={ag.x} cy={ag.y} r="5" fill="rgba(26,111,232,0.22)" />
+            )}
+            <text x={ag.x} y={ag.y + 33} textAnchor="middle"
+              fill={theme.muted} fontSize="7.5" fontFamily="system-ui, sans-serif"
+              letterSpacing="0.06em" fontWeight="500">
+              {ag.label.toUpperCase()}
+            </text>
+          </motion.g>
+        ))}
+      </svg>
+
+      {/* Floating Live Queue card */}
+      <motion.div
+        className="absolute bottom-6 right-0 rounded-xl p-3.5 min-w-[155px]"
+        style={{
+          backgroundColor: "white",
+          border: "1px solid rgba(26,111,232,0.15)",
+          boxShadow: "0 8px 32px rgba(26,111,232,0.10)",
+        }}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 2, duration: 0.5 }}
       >
-        <motion.circle cx={CX} cy={CY} r="30"
-          fill={theme.accentSoft} stroke={theme.accent} strokeWidth="1.5"
-          animate={{ r: [28, 31, 28] }}
-          transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
-        />
-        <circle cx={CX} cy={CY} r="20" fill={theme.accent} />
-        <text x={CX} y={CY + 1} textAnchor="middle" dominantBaseline="middle"
-          fontSize="8" fill="#fff" fontWeight="700" fontFamily="system-ui, sans-serif"
-          letterSpacing="1"
-        >
-          VANI
-        </text>
-      </motion.g>
-    </svg>
+        <div className="flex items-center gap-2 mb-2.5">
+          <motion.span
+            className="w-2 h-2 rounded-full bg-green-500"
+            animate={{ opacity: [1, 0.4, 1] }}
+            transition={{ repeat: Infinity, duration: 1.5 }}
+          />
+          <span className="text-[10px] font-mono uppercase tracking-widest"
+            style={{ color: theme.muted }}>Live Queue</span>
+        </div>
+        {[
+          { label: "AI Resolved", value: "247", color: "#22c55e" },
+          { label: "Escalated",   value: "12",  color: theme.accent },
+          { label: "Avg. Time",   value: "1.4s", color: theme.faint },
+        ].map((m) => (
+          <div key={m.label} className="flex justify-between items-center py-0.5">
+            <span className="text-[10px]" style={{ color: theme.faint }}>{m.label}</span>
+            <span className="text-[11px] font-mono font-semibold" style={{ color: m.color }}>{m.value}</span>
+          </div>
+        ))}
+      </motion.div>
+    </div>
   );
 }
 
-// ── Trust strip badges ────────────────────────────────────────────────
-const BADGES = [
-  "Voice + Messages",
-  "Human Escalation",
-  "Private Knowledge",
-  "Audit Logs",
-  "Arabic + English",
-  "Compliance-Aware",
+// ── Trust badges ──────────────────────────────────────────────────
+const TRUST_POINTS = [
+  "AI handles repetition. Humans handle excellence.",
+  "Arabic-first and English-ready. Voice + messaging.",
+  "Private knowledge layer. Your data stays yours.",
 ];
 
+// ── Stats badge ───────────────────────────────────────────────────
+function StatBadge({ value, label, theme }: { value: string; label: string; theme: LCTheme }) {
+  return (
+    <div className="flex flex-col items-center gap-0.5 border-r last:border-0 pr-5 last:pr-0"
+      style={{ borderColor: theme.border }}>
+      <span className="text-lg font-mono font-bold" style={{ color: theme.ink }}>{value}</span>
+      <span className="text-[10px] uppercase tracking-wider" style={{ color: theme.faint }}>{label}</span>
+    </div>
+  );
+}
+
+// ── Hero section ──────────────────────────────────────────────────
 export function LCHero({ theme }: { theme: LCTheme }) {
   const go = (id: string) => document.querySelector(id)?.scrollIntoView({ behavior: "smooth" });
 
@@ -166,215 +286,130 @@ export function LCHero({ theme }: { theme: LCTheme }) {
       className="relative min-h-screen flex flex-col overflow-hidden"
       style={{ backgroundColor: theme.bg }}
     >
-      {/* Subtle grid pattern */}
+      {/* Dot-grid background */}
       <div className="pointer-events-none absolute inset-0" style={{
         backgroundImage: theme.heroBgImage,
         backgroundSize: theme.heroBgSize,
       }} />
       {/* Accent glow */}
-      <div className="pointer-events-none absolute inset-0" style={{ background: theme.heroGlow }} />
-      {/* Edge fade */}
-      <div className="pointer-events-none absolute inset-0" style={{
-        background: `radial-gradient(ellipse 90% 70% at 10% 60%, ${theme.bg} 0%, transparent 60%)`,
-      }} />
+      <div className="pointer-events-none absolute inset-0"
+        style={{ backgroundImage: theme.heroGlow }} />
 
-      <div className="relative z-10 flex-1 max-w-7xl mx-auto px-6 pt-32 pb-0 w-full">
-        <div className="grid lg:grid-cols-[1fr_1.05fr] gap-12 lg:gap-16 items-center min-h-[calc(100vh-18rem)]">
+      <div className="relative z-10 flex-1 flex items-center">
+        <div className="max-w-7xl mx-auto px-6 pt-28 pb-16 w-full">
+          <div className="grid lg:grid-cols-2 gap-14 items-center">
 
-          {/* Left: headline + CTAs */}
-          <div className="flex flex-col gap-6">
-            {/* Status badge */}
-            <motion.div className="self-start"
-              initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-            >
-              <div className="flex items-center gap-2.5 border px-3.5 py-2 rounded-full text-xs font-sans font-medium"
-                style={{ borderColor: theme.border, backgroundColor: theme.surface, color: theme.muted }}
+            {/* Left — copy */}
+            <div className="flex flex-col gap-7">
+              {/* Status badge */}
+              <motion.div
+                className="inline-flex items-center gap-2 self-start rounded-full px-3.5 py-2"
+                style={{ border: `1px solid ${theme.border}`, backgroundColor: theme.surface }}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
               >
                 <motion.span className="w-1.5 h-1.5 rounded-full"
-                  style={{ backgroundColor: theme.accent }}
-                  animate={{ opacity: [0.5, 1, 0.5] }}
-                  transition={{ repeat: Infinity, duration: 1.8 }}
+                  style={{ backgroundColor: "#22c55e" }}
+                  animate={{ opacity: [1, 0.3, 1] }}
+                  transition={{ repeat: Infinity, duration: 2 }}
                 />
-                Enterprise AI Support Operations
-              </div>
-            </motion.div>
-
-            {/* Headline */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.75, ease: [0.25, 0.46, 0.45, 0.94] }}
-            >
-              <h1 className="font-sans font-bold text-[clamp(2.6rem,5.2vw,4.4rem)] leading-[1.04] tracking-tight"
-                style={{ color: theme.ink }}
-              >
-                AI support with<br />
-                <span style={{ color: theme.accent }}>a human voice.</span>
-              </h1>
-            </motion.div>
-
-            {/* Sub */}
-            <motion.p className="font-sans text-base leading-relaxed max-w-[500px]"
-              style={{ color: theme.muted }}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.35 }}
-            >
-              VANI helps enterprise teams resolve repetitive calls and messages 24/7,
-              while escalating sensitive, complex, and revenue-impacting cases to the people
-              who handle them best.
-            </motion.p>
-
-            {/* CTAs */}
-            <motion.div className="flex flex-wrap gap-3"
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-            >
-              <motion.button
-                onClick={() => go("#demo")}
-                className="inline-flex items-center gap-2 font-sans font-medium text-sm px-6 py-3.5 rounded-md cursor-pointer"
-                style={{ backgroundColor: theme.accent, color: "#fff" }}
-                whileHover={{ scale: 1.02, opacity: 0.92 }}
-                whileTap={{ scale: 0.98 }}
-                transition={{ type: "spring", stiffness: 400 }}
-              >
-                Request a Demo <ArrowRight size={14} />
-              </motion.button>
-              <motion.button
-                onClick={() => go("#simulation")}
-                className="inline-flex items-center gap-2 font-sans font-medium text-sm px-6 py-3.5 rounded-md border cursor-pointer"
-                style={{ borderColor: theme.border, color: theme.muted, backgroundColor: theme.surface }}
-                whileHover={{ borderColor: theme.accent, color: theme.accent }}
-                transition={{ duration: 0.15 }}
-              >
-                Try Simulation
-              </motion.button>
-            </motion.div>
-
-            {/* Trust points */}
-            <motion.div className="flex flex-col gap-2.5"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              transition={{ delay: 0.65 }}
-            >
-              {[
-                "AI handles repetition. Humans handle excellence.",
-                "Arabic-first and English-ready. Voice + messaging.",
-                "Private knowledge layer. Your data stays yours.",
-              ].map((pt) => (
-                <div key={pt} className="flex items-center gap-2.5">
-                  <CheckCircle size={13} style={{ color: theme.accent }} className="shrink-0" />
-                  <span className="font-sans text-sm" style={{ color: theme.muted }}>{pt}</span>
-                </div>
-              ))}
-            </motion.div>
-          </div>
-
-          {/* Right: Command Interface Preview */}
-          <div className="hidden lg:block relative">
-            <motion.div
-              className="relative rounded-xl overflow-hidden shadow-2xl border"
-              style={{ borderColor: theme.border, backgroundColor: theme.surface,
-                boxShadow: `0 24px 64px ${theme.netGlow}, 0 4px 24px rgba(0,0,0,0.06)` }}
-              initial={{ opacity: 0, y: 32, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ delay: 0.4, duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }}
-            >
-              {/* Chrome bar */}
-              <div className="flex items-center gap-2 px-4 py-3 border-b"
-                style={{ borderColor: theme.border, backgroundColor: theme.dashChrome }}
-              >
-                <div className="w-2.5 h-2.5 rounded-full bg-red-400/60" />
-                <div className="w-2.5 h-2.5 rounded-full bg-amber-400/50" />
-                <div className="w-2.5 h-2.5 rounded-full bg-green-400/50" />
-                <span className="ml-3 font-sans text-[10px] font-medium tracking-widest uppercase"
-                  style={{ color: theme.faint }}
-                >
-                  VANI · AI Operations Network
+                <span className="text-[10px] font-mono uppercase tracking-[0.2em]"
+                  style={{ color: theme.faint }}>
+                  Enterprise AI Support · Active
                 </span>
-                <div className="ml-auto flex items-center gap-1.5">
-                  <motion.div className="w-1.5 h-1.5 rounded-full"
-                    style={{ backgroundColor: "#22c55e" }}
-                    animate={{ opacity: [0.5, 1, 0.5] }}
-                    transition={{ repeat: Infinity, duration: 1.6 }}
-                  />
-                  <span className="font-sans text-[10px]" style={{ color: theme.faint }}>Live</span>
-                </div>
-              </div>
+              </motion.div>
 
-              {/* Network viz */}
-              <div className="p-4 pb-0" style={{ backgroundColor: theme.bg }}>
-                <NetworkViz theme={theme} delay={0.5} />
-              </div>
+              {/* Headline */}
+              <motion.div
+                initial={{ opacity: 0, y: 32 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2, duration: 0.75, ease: [0.25, 0.46, 0.45, 0.94] }}
+              >
+                <h1 className="font-sans font-bold text-[clamp(2.6rem,5.2vw,4.4rem)] leading-[1.04] tracking-tight"
+                  style={{ color: theme.ink }}>
+                  AI support with<br />
+                  <span style={{ color: theme.accent }}>a human voice.</span>
+                </h1>
+              </motion.div>
 
-              {/* Metric strip */}
-              <div className="grid grid-cols-4 border-t" style={{ borderColor: theme.border }}>
-                {[
-                  { v: "247", l: "Resolved" },
-                  { v: "12",  l: "Escalated" },
-                  { v: "94%", l: "Confidence" },
-                  { v: "1.8s",l: "Response" },
-                ].map(({ v, l }) => (
-                  <div key={l} className="flex flex-col items-center py-3 border-r last:border-r-0 gap-0.5"
-                    style={{ borderColor: theme.border, backgroundColor: theme.surface }}
-                  >
-                    <span className="font-sans font-bold text-sm" style={{ color: theme.accent }}>{v}</span>
-                    <span className="font-sans text-[10px]" style={{ color: theme.faint }}>{l}</span>
+              {/* Subheadline */}
+              <motion.p
+                className="font-sans text-base leading-relaxed max-w-[500px]"
+                style={{ color: theme.muted }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.35 }}
+              >
+                VANI helps enterprise teams resolve repetitive calls and messages 24/7,
+                while escalating sensitive, complex, and revenue-impacting cases to the people
+                who handle them best.
+              </motion.p>
+
+              {/* CTAs */}
+              <motion.div className="flex flex-wrap gap-3"
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+              >
+                <motion.button
+                  onClick={() => go("#demo")}
+                  className="inline-flex items-center gap-2 font-sans font-medium text-sm px-6 py-3.5 rounded-md cursor-pointer text-white"
+                  style={{ backgroundColor: theme.accent }}
+                  whileHover={{ scale: 1.02, opacity: 0.92 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: "spring", stiffness: 400 }}
+                >
+                  Request a Demo <ArrowRight size={14} />
+                </motion.button>
+                <motion.button
+                  onClick={() => go("#simulation")}
+                  className="inline-flex items-center gap-2 font-sans font-medium text-sm px-6 py-3.5 rounded-md border cursor-pointer"
+                  style={{ borderColor: theme.border, color: theme.muted, backgroundColor: theme.surface }}
+                  whileHover={{ borderColor: theme.accent, color: theme.accent }}
+                  transition={{ duration: 0.15 }}
+                >
+                  Try Simulation
+                </motion.button>
+              </motion.div>
+
+              {/* Trust points */}
+              <motion.div className="flex flex-col gap-2.5"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                transition={{ delay: 0.65 }}
+              >
+                {TRUST_POINTS.map((pt) => (
+                  <div key={pt} className="flex items-center gap-2.5">
+                    <CheckCircle size={13} style={{ color: theme.accent }} className="shrink-0" />
+                    <span className="font-sans text-sm" style={{ color: theme.muted }}>{pt}</span>
                   </div>
                 ))}
-              </div>
-            </motion.div>
+              </motion.div>
 
-            {/* Floating alert card */}
+              {/* Stats strip */}
+              <motion.div
+                className="flex gap-5 pt-4 border-t"
+                style={{ borderColor: theme.border }}
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                transition={{ delay: 0.75 }}
+              >
+                <StatBadge value="24/7"  label="Always on"  theme={theme} />
+                <StatBadge value="6"     label="Channels"   theme={theme} />
+                <StatBadge value="7"     label="AI Agents"  theme={theme} />
+                <StatBadge value="<2s"   label="Response"   theme={theme} />
+              </motion.div>
+            </div>
+
+            {/* Right — professional network visualization */}
             <motion.div
-              className="absolute -bottom-10 -left-8 border rounded-xl shadow-lg px-4 py-3 flex items-center gap-3"
-              style={{ backgroundColor: theme.surface, borderColor: theme.border,
-                boxShadow: `0 8px 32px rgba(0,0,0,0.08)` }}
-              initial={{ opacity: 0, x: -20, y: 10 }}
-              animate={{ opacity: 1, x: 0, y: 0 }}
-              transition={{ delay: 1.1, duration: 0.6 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4, duration: 0.8 }}
             >
-              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-                style={{ backgroundColor: theme.accentSoft }}>
-                <motion.div className="w-2.5 h-2.5 rounded-full"
-                  style={{ backgroundColor: theme.accent }}
-                  animate={{ scale: [1, 1.3, 1] }}
-                  transition={{ repeat: Infinity, duration: 1.5 }}
-                />
-              </div>
-              <div>
-                <p className="font-sans font-semibold text-xs" style={{ color: theme.ink }}>
-                  Case escalated · Ahmed K.
-                </p>
-                <p className="font-sans text-[10px]" style={{ color: theme.faint }}>
-                  Banking · Human agent briefed
-                </p>
-              </div>
+              <NetworkViz theme={theme} />
             </motion.div>
           </div>
         </div>
-
-        {/* Trust strip */}
-        <motion.div
-          className="mt-20 pb-8 border-t pt-6"
-          style={{ borderColor: theme.border }}
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-          transition={{ delay: 1, duration: 0.6 }}
-        >
-          <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
-            <span className="font-sans text-[10px] font-medium tracking-widest uppercase"
-              style={{ color: theme.faint }}>
-              Operational pillars
-            </span>
-            {BADGES.map((b) => (
-              <div key={b} className="flex items-center gap-2">
-                <div className="w-1 h-1 rounded-full" style={{ backgroundColor: theme.accent }} />
-                <span className="font-sans text-xs font-medium" style={{ color: theme.muted }}>{b}</span>
-              </div>
-            ))}
-          </div>
-        </motion.div>
       </div>
 
       {/* Scroll cue */}
@@ -383,14 +418,14 @@ export function LCHero({ theme }: { theme: LCTheme }) {
           className="flex flex-col items-center gap-2 cursor-pointer"
           style={{ color: theme.faint }}
           initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-          transition={{ delay: 1.3 }}
+          transition={{ delay: 1.4 }}
           whileHover={{ color: theme.muted }}
         >
-          <span className="font-sans text-[10px] tracking-widest uppercase">Explore</span>
+          <span className="font-sans text-[9px] tracking-[0.3em] uppercase">Scroll</span>
           <motion.div
             animate={{ y: [0, 5, 0] }}
             transition={{ repeat: Infinity, duration: 1.8 }}
-            className="w-px h-6"
+            className="w-px h-7"
             style={{ background: `linear-gradient(to bottom, transparent, ${theme.faint}, transparent)` }}
           />
         </motion.button>
