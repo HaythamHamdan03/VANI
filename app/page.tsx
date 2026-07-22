@@ -4,6 +4,59 @@ import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 
 const STYLES = [
+  // ── Light Command Center (3 variants) ─────────────────────────────
+  {
+    slug:      "porcelain-command",
+    name:      "Porcelain Command",
+    tag:       "LC — 01",
+    tagline:   "Light enterprise AI operations center with coral-red accents.",
+    desc:      "Warm ivory background, electric coral accent, animated AI network viz, polished SaaS dashboard. Premium, clean, investor-ready.",
+    palette:   ["#FAFAF8", "#E5341C", "#17161A", "#9A98A0"],
+    labels:    ["Ivory", "Coral Red", "Ink", "Stone"],
+    mood:      "Premium · Clean · Sharp · Technical",
+    fit:       "Investors · Enterprise SaaS buyers · Tech-forward CXOs",
+    bg:        "#FAFAF8",
+    border:    "#E8E5DF",
+    accent:    "#E5341C",
+    text:      "#17161A",
+    muted:     "#595660",
+    cardBg:    "#FFFFFF",
+  },
+  {
+    slug:      "cloud-intelligence",
+    name:      "Cloud Intelligence",
+    tag:       "LC — 02",
+    tagline:   "Enterprise SaaS with signal-blue intelligence and calm authority.",
+    desc:      "Cool off-white background, signal blue accent, blue-tinted dashboard surfaces, dot-grid hero pattern. Calm, trustworthy, scalable.",
+    palette:   ["#F5F8FB", "#1A6FE8", "#0C1829", "#8696B0"],
+    labels:    ["Cloud White", "Signal Blue", "Navy", "Slate"],
+    mood:      "Enterprise · Calm · Trustworthy · Intelligent",
+    fit:       "Enterprise IT · Operations leaders · SaaS-familiar buyers",
+    bg:        "#F5F8FB",
+    border:    "#D5E1EE",
+    accent:    "#1A6FE8",
+    text:      "#0C1829",
+    muted:     "#3E5270",
+    cardBg:    "#FFFFFF",
+  },
+  {
+    slug:      "sandstone-ai",
+    name:      "Sandstone AI",
+    tag:       "LC — 03",
+    tagline:   "Warm, modern, and Saudi-market-friendly. Technical but not cold.",
+    desc:      "Warm sand background, clay red accent, diamond-grid hero pattern, editorial spacing. Premium, regional, human-centered but operational.",
+    palette:   ["#FAF8F3", "#C84020", "#1A1710", "#9A8E82"],
+    labels:    ["Sand", "Clay Red", "Warm Black", "Bronze Gray"],
+    mood:      "Warm · Regional · Editorial · Trustworthy",
+    fit:       "Saudi enterprise · Gulf market · Arabic-first buyers",
+    bg:        "#FAF8F3",
+    border:    "#E2D9CC",
+    accent:    "#C84020",
+    text:      "#1A1710",
+    muted:     "#5C5248",
+    cardBg:    "#FFFFFF",
+  },
+  // ── Original dark / other styles ──────────────────────────────────
   {
     slug:      "style-command",
     name:      "Command Center",
@@ -98,7 +151,7 @@ export default function StylePickerPage() {
 
       {/* Style cards */}
       <div className="max-w-7xl mx-auto px-6 pb-20 w-full">
-        <div className="grid lg:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {STYLES.map((s, i) => (
             <motion.div
               key={s.slug}
@@ -230,8 +283,8 @@ export default function StylePickerPage() {
           transition={{ delay: 0.9, duration: 0.5 }}
         >
           <p className="font-sans text-xs text-[#4A4540] leading-relaxed max-w-lg mx-auto">
-            Each style is a complete, functional landing page with all 17 sections.<br />
-            Colors, typography, animations, and 3D elements differ across styles.
+            Six complete landing pages — three light Command Center variants + two existing styles.<br />
+            Each shares the same sections; color system, animations, and atmosphere differ.
           </p>
         </motion.div>
       </div>
